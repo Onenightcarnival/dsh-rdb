@@ -1,0 +1,6 @@
+# dsh-rdb bundle patch: inserts the dual-face plugin row into the web profile
+# roster. The node half (exports ".") serves /api/dsh-rdb and the optional
+# db_* agent tools; the browser half (exports "./client") renders the panel.
+- insert:
+    - id: rdb
+      name: dsh-rdb

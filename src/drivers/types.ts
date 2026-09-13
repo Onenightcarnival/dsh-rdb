@@ -1,0 +1,29 @@
+import type { ColumnInfo, IndexInfo, QueryResult, TableRef } from '../protocol.ts'
+
+export interface QueryOptions {
+  /** Cap on returned rows; extra rows are dropped and `truncated` set. */
+  maxRows: number
+  timeoutMs: number
+}
+
+/** One open connection to one database. */
+export interface DbConnection {
+  /** Run one statement; `params` are positional. */
+  query(sql: string, params: unknown[], options: QueryOptions): Promise<QueryResult>
+  /** Run several statements inside one transaction; rolls back on the first failure. */
+  transaction(statements: { sql: string; params: unknown[] }[], options: QueryOptions): Promise<number>
+  listSchemas(): Promise<string[]>
+  listTables(schema: string): Promise<TableRef[]>
+  columns(table: TableRef): Promise<ColumnInfo[]>
+  indexes(table: TableRef): Promise<IndexInfo[]>
+  ddl(table: TableRef): Promise<string>
+  estimatedRows(table: TableRef): Promise<number | undefined>
+  serverVersion(): Promise<string>
+  /** Quote one identifier for this dialect. */
+  quoteIdent(name: string): string
+  /** Positional placeholder for parameter index (0-based). */
+  placeholder(index: number): string
+  /** Default schema for unqualified names. */
+  defaultSchema: string
+  close(): Promise<void>
+}
