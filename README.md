@@ -6,9 +6,11 @@ Supports SQLite (`node:sqlite`, no native addon), PostgreSQL (`pg`) and Huawei C
 
 ```sh
 dsh plugin --profile web add dsh-rdb
-# or, from a packed tarball:
-dsh plugin --profile web add file:./dsh-rdb-0.1.0.tgz
+# or, from a packed tarball downloaded from the Releases page:
+dsh plugin --profile web add file:./dsh-rdb-<version>.tgz
 ```
+
+Prebuilt tarballs are attached to every [GitHub Release](https://github.com/Onenightcarnival/dsh-rdb/releases); each `vX.Y.Z` tag is built and published automatically by CI.
 
 Connections live in `~/.dsh/dsh-rdb.json` (mode 0600); passwords never reach the browser or the agent. Routes are loopback-only and require the GUI's browser-session cookie. `db_query` is read-only by server-side classification; `db_execute` requires the connection's "allow agent writes" flag and `confirm=true`. See [README.zh.md](README.zh.md) for the full guide (Chinese).
 

@@ -14,10 +14,12 @@
 ## 安装
 
 ```sh
-dsh plugin --profile web add dsh-rdb            # 发布到 npm 之后
-dsh plugin --profile web add file:./dsh-rdb-0.1.0.tgz   # 离线包
+dsh plugin --profile web add dsh-rdb                     # 发布到 npm 之后
+dsh plugin --profile web add file:./dsh-rdb-<版本>.tgz   # 离线包
 ```
 
+离线包从 [GitHub Releases](https://github.com/Onenightcarnival/dsh-rdb/releases)
+页面下载，每个 `vX.Y.Z` tag 都会由 CI 自动构建并挂上对应的 `dsh-rdb-X.Y.Z.tgz`。
 桌面版在「插件 → 配置中心 → 插件 → 从 .tgz 安装」选中包即可，重启生效。
 驱动已打进 `lib/index.js`，没有运行时依赖。
 
@@ -70,6 +72,15 @@ token URL 换 cookie，再打 `/api/dsh-rdb/*`；GUI 用 Playwright 打开 token
 点侧边栏「数据库」即可截图。同一个 token 只能换一次 cookie，换浏览器要重启
 dsh web；pnpm 对同版本号的 file: 包会复用 store 里的旧内容，迭代时先
 `plugin remove` 再 add。
+
+### 发版
+
+推一个 `vX.Y.Z` 格式的 tag（预发布用 `vX.Y.Z-rc.1` 这类带 `-` 的形式），
+`.github/workflows/release.yml` 会自动：校验 tag 格式 → 用 tag 覆盖
+`package.json` 的版本号 → typecheck、build、`npm pack` → 创建同名 GitHub
+Release 并挂上 tgz（带 `-` 的 tag 标为 prerelease）。版本号以 tag 为准，
+仓库里 `package.json` 的 `version` 字段不用手动改。GitHub Desktop 里的操作是：
+History 中右键目标 commit → Create Tag → 再 Push origin 一次。
 
 ## 许可
 
