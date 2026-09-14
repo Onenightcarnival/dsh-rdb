@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { RdbApi } from '../api.ts'
-import type { DbProfilePayload, DbProfileSummary, TableInfo, TableRef } from '../../protocol.ts'
+import { hostEntries, type DbProfilePayload, type DbProfileSummary, type TableInfo, type TableRef } from '../../protocol.ts'
 import { tt } from '../locales.ts'
 import type { PanelController } from '../mount.tsx'
 import { BannerView, Modal, errorMessage, type Banner } from './common.tsx'
@@ -24,7 +24,9 @@ function TableIcon(props: { kind: TableRef['kind'] }): JSX.Element {
 }
 
 function profileTarget(p: DbProfileSummary): string {
-  return p.kind === 'sqlite' ? p.file : `${p.host}:${p.port}/${p.database}`
+  if (p.kind === 'sqlite') return p.file
+  const nodes = hostEntries(p.host, p.port)
+  return `${nodes.length > 1 ? `${nodes[0]} +${nodes.length - 1}` : nodes[0]}/${p.database}${p.targetSessionAttrs !== 'any' ? ` · ${tt(`form.target.${p.targetSessionAttrs}` as 'form.target.any')}` : ''}`
 }
 
 export function RdbPanel(props: RdbPanelProps): JSX.Element {
@@ -126,7 +128,7 @@ export function RdbPanel(props: RdbPanelProps): JSX.Element {
     try {
       const result = await api.test(profile.id)
       setBanner(result.ok
-        ? { kind: 'ok', text: tt('conn.testOk', { version: result.serverVersion ?? '', latency: result.latencyMs }) }
+        ? { kind: 'ok', text: result.node !== undefined ? tt('conn.testOk', { node: result.node, version: result.serverVersion ?? '', latency: result.latencyMs }) : tt('conn.testOkFile', { version: result.serverVersion ?? '', latency: result.latencyMs }) }
         : { kind: 'error', text: tt('conn.testFail', { error: result.error ?? '?' }) })
     } catch (error) {
       setBanner({ kind: 'error', text: tt('conn.testFail', { error: errorMessage(error) }) })
@@ -179,7 +181,7 @@ export function RdbPanel(props: RdbPanelProps): JSX.Element {
               {profiles.map(profile => (
                 <button key={profile.id} type="button" className="dsh-rdb-profile" {...(profile.id === activeId ? { 'data-active': '' } : {})} onClick={() => { setActiveId(profile.id) }}>
                   <span className="dsh-rdb-profileName"><span className="dsh-rdb-kind">{KIND_LABEL[profile.kind] ?? profile.kind}</span>{profile.name}{profile.allowWrite && <span className="dsh-rdb-writeTag">{tt('conn.writeOn')}</span>}</span>
-                  <span className="dsh-rdb-profileMeta" title={profileTarget(profile)}>{profileTarget(profile)}</span>
+                  <span className="dsh-rdb-profileMeta" title={profile.kind === 'sqlite' ? profile.file : `${hostEntries(profile.host, profile.port).join(', ')}/${profile.database}`}>{profileTarget(profile)}</span>
                 </button>
               ))}
             </div>

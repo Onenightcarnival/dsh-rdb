@@ -100,7 +100,7 @@ export class RdbEngine {
   async connect(idOrName: string): Promise<{ profile: DbProfile; conn: DbConnection }> {
     const profile = this.profile(idOrName)
     let cached = this.conns.get(profile.id)
-    if (cached !== undefined && cached.updatedAt !== profile.updatedAt) {
+    if (cached !== undefined && (cached.updatedAt !== profile.updatedAt || cached.conn.alive === false)) {
       await cached.conn.close().catch(() => undefined)
       this.conns.delete(profile.id)
       cached = undefined
@@ -143,7 +143,7 @@ export class RdbEngine {
     try {
       const { conn } = await this.connect(idOrName)
       const serverVersion = await conn.serverVersion()
-      return { ok: true, latencyMs: Date.now() - started, serverVersion }
+      return { ok: true, latencyMs: Date.now() - started, serverVersion, ...(conn.node !== undefined ? { node: conn.node } : {}) }
     } catch (error) {
       return { ok: false, latencyMs: Date.now() - started, error: errorText(error) }
     }

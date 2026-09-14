@@ -25,5 +25,9 @@ export interface DbConnection {
   placeholder(index: number): string
   /** Default schema for unqualified names. */
   defaultSchema: string
+  /** `host:port` of the node in use (network databases only). */
+  node?: string
+  /** False once the underlying socket is gone; the engine reconnects on the next use. */
+  alive?: boolean
   close(): Promise<void>
 }

@@ -27,8 +27,19 @@ dsh plugin --profile web add file:./dsh-rdb-<版本>.tgz   # 离线包
 
 1. 侧边栏点「数据库」，左栏「+ 新增」选类型：SQLite 填数据库文件路径；
    PostgreSQL / GaussDB 填主机、端口、数据库、用户名、密码，可勾选 SSL。
+   主机可填多个节点，逗号分隔，所有节点共用端口栏的端口。
    可选项：显示名称（默认 `数据库@主机` 或文件名，agent 用它引用这条连接）、
-   「允许 agent 写入」（不勾时 agent 只能读）。「测试连接」返回服务端版本和延迟。
+   目标节点、随机选择节点、「允许 agent 写入」（不勾时 agent 只能读）。
+   「测试连接」返回实际连上的节点、服务端版本和延迟。
+
+   多节点的选择规则与 libpq 的 `target_session_attrs` / `load_balance_hosts`
+   一致：按填写顺序（勾了「随机选择节点」则随机顺序）逐个尝试，连不上的跳过；
+   连上后查 `pg_is_in_recovery()` 和 `transaction_read_only`，不满足目标的断开
+   换下一个。目标节点：任意节点（不检查）、可读写（非恢复态且非只读）、只读
+   （恢复态或只读）、主库（非恢复态）、备库（恢复态）、优先备库（先在全部节点
+   里找备库，没有再接受任意节点）。连接中断后下一次使用会按同样规则重连，
+   主库宕机时自动落到列表里其他可用节点。GaussDB 对应 JDBC 的
+   `targetServerType=master / slave / preferSlave` 与 `autoBalance`。
 2. 对象树按 schema 切换，列出表和视图，支持名称过滤。选中一张表：
    - 数据：每页 100 行，列头点击排序，单列过滤（`=`、`like`、`is null` 等），
      双击单元格编辑（`∅` 置 NULL，Esc 取消），「新增行」「删除所选」，
@@ -50,6 +61,8 @@ dsh plugin --profile web add file:./dsh-rdb-<版本>.tgz   # 离线包
   不返回给浏览器或 agent。
 - `/api/dsh-rdb/*` 路由只接受本机回环地址，并要求 dsh web 自己的浏览器
   会话 cookie；没有 cookie 的本地进程得到 401。
+- 多节点只在建立连接时选节点；同一条连接不做读写分离。需要写走主库、
+  读走备库时，建两条连接（目标分别设主库、备库）。
 - `db_query` / `db_explain` 在服务端做只读判定（拒绝 DML、DDL、
   `select … into`、`for update` 等），与前端判定无关；`db_execute`
   再叠加连接级写入开关。

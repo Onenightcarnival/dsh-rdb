@@ -5,7 +5,7 @@
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm'
 import { errorText, type RdbEngine } from './engine.ts'
-import type { DbProfileSummary, QueryResult, TableInfo, TableRef } from './protocol.ts'
+import { hostEntries, type DbProfileSummary, type QueryResult, type TableInfo, type TableRef } from './protocol.ts'
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
 import type { ProfileStore } from './store.ts'
@@ -44,6 +44,7 @@ export function dbConnectionsTool(store: ProfileStore) {
                 id: { type: 'string', required: true }, name: { type: 'string', required: true }, kind: { type: 'string', required: true },
                 file: { type: 'string', required: true }, host: { type: 'string', required: true }, port: { type: 'integer', required: true },
                 database: { type: 'string', required: true }, user: { type: 'string', required: true }, ssl: { type: 'boolean', required: true },
+                targetSessionAttrs: { type: 'string', required: true }, loadBalanceHosts: { type: 'boolean', required: true },
                 allowWrite: { type: 'boolean', required: true }, createdAt: { type: 'integer', required: true }, updatedAt: { type: 'integer', required: true },
               },
             },
@@ -54,7 +55,7 @@ export function dbConnectionsTool(store: ProfileStore) {
         const list = (value.connections ?? []) as DbProfileSummary[]
         if (list.length === 0) return text('no database connections configured (the user adds them in the database panel)')
         return text(['name | kind | target | writes', '--- | --- | --- | ---',
-          ...list.map(c => `${c.name} | ${c.kind} | ${c.kind === 'sqlite' ? c.file : `${c.user}@${c.host}:${c.port}/${c.database}`} | ${c.allowWrite ? 'allowed' : 'read-only'}`)].join('\n'))
+          ...list.map(c => `${c.name} | ${c.kind} | ${c.kind === 'sqlite' ? c.file : `${c.user}@${hostEntries(c.host, c.port).join(',')}/${c.database}${c.targetSessionAttrs !== 'any' ? ` (target ${c.targetSessionAttrs})` : ''}`} | ${c.allowWrite ? 'allowed' : 'read-only'}`)].join('\n'))
       },
     },
     async execute() { return { connections: store.list().map(p => store.summarize(p)) } },

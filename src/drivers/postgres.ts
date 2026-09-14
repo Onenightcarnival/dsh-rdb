@@ -5,8 +5,9 @@
  */
 import pgModule from 'pg'
 import gaussModule from 'gaussdb-node'
-import type { ColumnInfo, DbKind, DbProfile, IndexInfo, QueryResult, TableRef } from '../protocol.ts'
+import type { ColumnInfo, DbKind, DbProfile, IndexInfo, QueryResult, TableRef, TargetSessionAttrs } from '../protocol.ts'
 import type { DbConnection, QueryOptions } from './types.ts'
+import { nodeText, parseHosts, type HostNode } from '../store.ts'
 
 interface PgLikeResult {
   rows: unknown[][]
@@ -18,7 +19,7 @@ interface PgLikeClient {
   connect(): Promise<void>
   query(config: { text: string; values?: unknown[]; rowMode?: 'array' }): Promise<PgLikeResult>
   end(): Promise<void>
-  on(event: 'error', handler: (error: Error) => void): void
+  on(event: 'error' | 'end', handler: (error?: Error) => void): void
 }
 interface PgLikeModule {
   Client: new (config: Record<string, unknown>) => PgLikeClient
@@ -40,28 +41,104 @@ function toJs(value: unknown): unknown {
   return value
 }
 
+/** What one node reports about itself, for target_session_attrs matching. */
+interface SessionState { inRecovery: boolean; readOnly: boolean }
+
+/** libpq's acceptance rule per target_session_attrs value ('prefer-standby' is handled as two passes). */
+export function sessionMatches(want: Exclude<TargetSessionAttrs, 'prefer-standby'>, state: SessionState): boolean {
+  switch (want) {
+    case 'any': return true
+    case 'read-write': return !state.inRecovery && !state.readOnly
+    case 'read-only': return state.inRecovery || state.readOnly
+    case 'primary': return !state.inRecovery
+    case 'standby': return state.inRecovery
+  }
+}
+
+/** Fisher-Yates shuffle (libpq load_balance_hosts=random). */
+function shuffled<T>(items: T[]): T[] {
+  const out = [...items]
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]]
+  }
+  return out
+}
+
 export class PgConnection implements DbConnection {
   readonly defaultSchema = 'public'
-  private readonly client: PgLikeClient
+  private client!: PgLikeClient
   private readonly kind: DbKind
+  private readonly profile: DbProfile
+  /** `host:port` of the node in use; set by connect(). */
+  node = ''
+  /** Cleared when the socket errors or ends; the engine then reconnects (possibly to another node). */
+  alive = false
 
   constructor(profile: DbProfile) {
     this.kind = profile.kind
-    const mod = (profile.kind === 'gaussdb' ? gaussModule : pgModule) as unknown as PgLikeModule
-    this.client = new mod.Client({
-      host: profile.host,
-      port: profile.port,
-      database: profile.database,
-      user: profile.user,
-      password: profile.password,
-      ssl: profile.ssl ? { rejectUnauthorized: false } : false,
+    this.profile = profile
+  }
+
+  private open(node: HostNode): PgLikeClient {
+    const mod = (this.kind === 'gaussdb' ? gaussModule : pgModule) as unknown as PgLikeModule
+    return new mod.Client({
+      host: node.host,
+      port: node.port,
+      database: this.profile.database,
+      user: this.profile.user,
+      password: this.profile.password,
+      ssl: this.profile.ssl ? { rejectUnauthorized: false } : false,
       connectionTimeoutMillis: 15000,
       application_name: 'dsh-rdb',
     })
-    this.client.on('error', () => { /* surfaced by the next query */ })
   }
 
-  async connect(): Promise<void> { await this.client.connect() }
+  private async sessionState(client: PgLikeClient): Promise<SessionState> {
+    const res = await client.query({ text: 'SELECT pg_is_in_recovery() AS in_recovery, current_setting(\'transaction_read_only\') AS read_only', rowMode: 'array' })
+    const row = res.rows[0] ?? []
+    return { inRecovery: row[0] === true || row[0] === 't', readOnly: String(row[1]).toLowerCase() === 'on' }
+  }
+
+  /**
+   * Node selection with libpq semantics: hosts are tried in listed (or random)
+   * order; a node is kept only if its session state satisfies
+   * target_session_attrs, otherwise it is closed and the next one is tried.
+   * 'prefer-standby' first looks for a standby across all nodes, then accepts any.
+   */
+  async connect(): Promise<void> {
+    const nodes = parseHosts(this.profile.host, this.profile.port)
+    const ordered = this.profile.loadBalanceHosts ? shuffled(nodes) : nodes
+    const passes: Exclude<TargetSessionAttrs, 'prefer-standby'>[] = this.profile.targetSessionAttrs === 'prefer-standby' ? ['standby', 'any'] : [this.profile.targetSessionAttrs]
+    const failures: string[] = []
+    for (const want of passes) {
+      for (const node of ordered) {
+        const label = nodeText(node)
+        const client = this.open(node)
+        client.on('error', () => { this.alive = false })
+        client.on('end', () => { this.alive = false })
+        try {
+          await client.connect()
+        } catch (error) {
+          failures.push(`${label}: ${(error as Error).message}`)
+          continue
+        }
+        try {
+          if (want === 'any' || sessionMatches(want, await this.sessionState(client))) {
+            this.client = client
+            this.node = label
+            this.alive = true
+            return
+          }
+          failures.push(`${label}: session does not satisfy '${want}'`)
+        } catch (error) {
+          failures.push(`${label}: ${(error as Error).message}`)
+        }
+        await client.end().catch(() => undefined)
+      }
+    }
+    throw new Error(`no node accepted the connection (target ${this.profile.targetSessionAttrs}): ${failures.join('; ')}`)
+  }
 
   quoteIdent(name: string): string { return '"' + name.replace(/"/g, '""') + '"' }
   placeholder(index: number): string { return `$${index + 1}` }
@@ -200,5 +277,8 @@ export class PgConnection implements DbConnection {
     return this.kind === 'gaussdb' ? v.slice(0, 80) : (v.match(/^PostgreSQL [^ ]+/)?.[0] ?? v.slice(0, 80))
   }
 
-  async close(): Promise<void> { await this.client.end().catch(() => undefined) }
+  async close(): Promise<void> {
+    this.alive = false
+    if (this.client !== undefined) await this.client.end().catch(() => undefined)
+  }
 }

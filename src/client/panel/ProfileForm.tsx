@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { DbKind, DbProfilePayload, DbProfileSummary } from '../../protocol.ts'
+import { TARGET_SESSION_ATTRS, type DbKind, type DbProfilePayload, type DbProfileSummary, type TargetSessionAttrs } from '../../protocol.ts'
 import { tt } from '../locales.ts'
 import { Modal, errorMessage } from './common.tsx'
 
@@ -22,6 +22,8 @@ export function ProfileForm(props: ProfileFormProps): JSX.Element {
   const [user, setUser] = useState(p?.user ?? '')
   const [password, setPassword] = useState('')
   const [ssl, setSsl] = useState(p?.ssl ?? false)
+  const [target, setTarget] = useState<TargetSessionAttrs>(p?.targetSessionAttrs ?? 'any')
+  const [loadBalance, setLoadBalance] = useState(p?.loadBalanceHosts ?? false)
   const [name, setName] = useState(p?.name ?? '')
   const [allowWrite, setAllowWrite] = useState(p?.allowWrite ?? false)
   const [saving, setSaving] = useState(false)
@@ -40,6 +42,7 @@ export function ProfileForm(props: ProfileFormProps): JSX.Element {
       else {
         payload.host = host; payload.database = database; payload.user = user
         payload.port = port.trim() === '' ? DEFAULT_PORT[kind] : Number(port)
+        payload.targetSessionAttrs = target; payload.loadBalanceHosts = loadBalance
         if (password !== '' || props.mode === 'create') payload.password = password
       }
       await props.onSave(payload)
@@ -75,7 +78,7 @@ export function ProfileForm(props: ProfileFormProps): JSX.Element {
             <div className="dsh-rdb-formRow" style={{ gridTemplateColumns: '1fr 120px' }}>
               <label className="dsh-rdb-field">
                 <span className="dsh-rdb-fieldLabel">{tt('form.host')}</span>
-                {input(host, setHost, { placeholder: '127.0.0.1', autoFocus: true })}
+                {input(host, setHost, { placeholder: 'db1.example.com, db2.example.com', autoFocus: true })}
               </label>
               <label className="dsh-rdb-field">
                 <span className="dsh-rdb-fieldLabel">{tt('form.port')}</span>
@@ -104,6 +107,20 @@ export function ProfileForm(props: ProfileFormProps): JSX.Element {
           </>
         )}
         <div className="dsh-rdb-formDivider">{tt('form.optional')}</div>
+        {kind !== 'sqlite' && (
+          <div className="dsh-rdb-formRow" style={{ alignItems: 'end' }}>
+            <label className="dsh-rdb-field">
+              <span className="dsh-rdb-fieldLabel">{tt('form.target')}</span>
+              <select className="dsh-rdb-select" value={target} onChange={(e) => { setTarget(e.target.value as TargetSessionAttrs) }}>
+                {TARGET_SESSION_ATTRS.map(v => <option key={v} value={v}>{tt(`form.target.${v}` as 'form.target.any')}</option>)}
+              </select>
+            </label>
+            <label className="dsh-rdb-checkRow" style={{ paddingBottom: 8 }}>
+              <input type="checkbox" className="dsh-rdb-check" checked={loadBalance} onChange={(e) => { setLoadBalance(e.target.checked) }} />
+              <span>{tt('form.loadBalance')}</span>
+            </label>
+          </div>
+        )}
         <label className="dsh-rdb-field">
           <span className="dsh-rdb-fieldLabel">{tt('form.name')}</span>
           <input className="dsh-rdb-input" value={name} onChange={(e) => { setName(e.target.value) }} placeholder={tt('form.namePlaceholder')} />

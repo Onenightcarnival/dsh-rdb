@@ -20,6 +20,15 @@ export const RDB_API = {
 
 export type DbKind = 'sqlite' | 'postgres' | 'gaussdb'
 
+/** libpq target_session_attrs, same names and semantics. */
+export type TargetSessionAttrs = 'any' | 'read-write' | 'read-only' | 'primary' | 'standby' | 'prefer-standby'
+export const TARGET_SESSION_ATTRS: TargetSessionAttrs[] = ['any', 'read-write', 'read-only', 'primary', 'standby', 'prefer-standby']
+
+/** Node entries of a profile as `host:port` strings; every node shares `port`. */
+export function hostEntries(host: string, port: number): string[] {
+  return host.split(/[\s,]+/).filter(h => h !== '').map(h => `${h.includes(':') && !h.startsWith('[') ? `[${h}]` : h}:${port}`)
+}
+
 /** One connection as stored on disk (password included). */
 export interface DbProfile {
   id: string
@@ -27,12 +36,17 @@ export interface DbProfile {
   kind: DbKind
   /** SQLite: database file path (":memory:" allowed). */
   file: string
+  /** One or more hosts, comma-separated; every node listens on `port`. */
   host: string
   port: number
   database: string
   user: string
   password: string
   ssl: boolean
+  /** Which node qualifies (libpq target_session_attrs). */
+  targetSessionAttrs: TargetSessionAttrs
+  /** Try nodes in random order instead of listed order (libpq load_balance_hosts=random). */
+  loadBalanceHosts: boolean
   /** Agent tools may run writes on this connection (the panel always may). */
   allowWrite: boolean
   createdAt: number
@@ -50,6 +64,8 @@ export interface DbProfileSummary {
   database: string
   user: string
   ssl: boolean
+  targetSessionAttrs: TargetSessionAttrs
+  loadBalanceHosts: boolean
   allowWrite: boolean
   createdAt: number
   updatedAt: number
@@ -65,6 +81,8 @@ export interface DbProfilePayload {
   user?: string
   password?: string
   ssl?: boolean
+  targetSessionAttrs?: TargetSessionAttrs
+  loadBalanceHosts?: boolean
   allowWrite?: boolean
 }
 
@@ -76,6 +94,8 @@ export interface DbTestResult {
   ok: boolean
   latencyMs: number
   serverVersion?: string
+  /** `host:port` of the node that answered. */
+  node?: string
   error?: string
 }
 

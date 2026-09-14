@@ -2,7 +2,7 @@
 
 Relational database workbench for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`). Adds a "Database" entry to the web GUI sidebar: saved connections, a schema/table/view tree, a paged data grid with filters, sorting and inline edits committed as one previewed transaction, a structure view (columns, indexes, DDL), a SQL editor with CSV export — and a single switch that injects the `db_*` toolset into the agent (`db_connections`, `db_schema`, `db_query`, `db_explain`, `db_execute`). Writes by the agent are gated per connection.
 
-Supports SQLite (`node:sqlite`, no native addon), PostgreSQL (`pg`) and Huawei Cloud GaussDB (`gaussdb-node`). Drivers are bundled, so the package has no runtime dependencies.
+Supports SQLite (`node:sqlite`, no native addon), PostgreSQL (`pg`) and Huawei Cloud GaussDB (`gaussdb-node`). Drivers are bundled, so the package has no runtime dependencies. A connection may list several hosts (comma-separated, one shared port); node selection follows libpq's `target_session_attrs` (any / read-write / read-only / primary / standby / prefer-standby) and `load_balance_hosts`, with automatic reconnection to another node after a failure.
 
 ```sh
 dsh plugin --profile web add dsh-rdb
