@@ -51,8 +51,9 @@ export function RdbPanel(props: RdbPanelProps): JSX.Element {
   const current = sel !== undefined && sel.id === activeId ? sel : undefined
   const schema = current?.schema ?? ''
   const table = current?.table
-  const setSchema = (next: string): void => { if (current !== undefined) setSel({ id: current.id, schema: next }) }
-  const setTable = (next: TableRef | undefined): void => { if (current !== undefined) setSel({ ...current, table: next }) }
+  // Functional updates: two calls in one handler must not overwrite each other with a stale snapshot.
+  const setSchema = (next: string): void => { setSel(prev => prev !== undefined && prev.id === activeId ? { id: prev.id, schema: next } : prev) }
+  const setTable = (next: TableRef | undefined): void => { setSel(prev => prev !== undefined && prev.id === activeId ? { ...prev, table: next } : prev) }
 
   const refresh = useCallback(async (): Promise<void> => {
     try {
@@ -199,7 +200,7 @@ export function RdbPanel(props: RdbPanelProps): JSX.Element {
               <div className="dsh-rdb-treeHead">
                 <span>{tt('tree.title')}</span>
                 {schemas.length > 1 && (
-                  <select className="dsh-rdb-select" value={schema} onChange={(e) => { setSchema(e.target.value); setTable(undefined) }}>
+                  <select className="dsh-rdb-select" value={schema} onChange={(e) => { setSchema(e.target.value) }}>
                     {schemas.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 )}
