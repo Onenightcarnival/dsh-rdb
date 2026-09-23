@@ -15,7 +15,7 @@ export interface RdbPanelProps {
 }
 
 type Tab = 'data' | 'structure' | 'sql'
-const KIND_LABEL: Record<string, string> = { sqlite: 'sqlite', postgres: 'pg', gaussdb: 'gauss' }
+const KIND_LABEL: Record<string, string> = { sqlite: 'sqlite', postgres: 'pg', gaussdb: 'gauss', mysql: 'mysql' }
 
 function TableIcon(props: { kind: TableRef['kind'] }): JSX.Element {
   return props.kind === 'view'

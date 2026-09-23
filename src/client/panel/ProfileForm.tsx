@@ -10,7 +10,7 @@ export interface ProfileFormProps {
   onSave: (payload: DbProfilePayload) => Promise<void>
 }
 
-const DEFAULT_PORT: Record<DbKind, number> = { sqlite: 0, postgres: 5432, gaussdb: 8000 }
+const DEFAULT_PORT: Record<DbKind, number> = { sqlite: 0, postgres: 5432, gaussdb: 8000, mysql: 3306 }
 
 export function ProfileForm(props: ProfileFormProps): JSX.Element {
   const p = props.profile
@@ -64,7 +64,7 @@ export function ProfileForm(props: ProfileFormProps): JSX.Element {
     >
       <form onSubmit={(e) => { e.preventDefault(); void submit() }} className="dsh-rdb-form">
         <div className="dsh-rdb-segmented" role="radiogroup" aria-label={tt('form.kind')}>
-          {(['postgres', 'gaussdb', 'sqlite'] as DbKind[]).map(k => (
+          {(['postgres', 'mysql', 'gaussdb', 'sqlite'] as DbKind[]).map(k => (
             <button key={k} type="button" role="radio" aria-checked={kind === k} {...(kind === k ? { 'data-active': '' } : {})} onClick={() => { changeKind(k) }}>{tt(`form.kind.${k}` as 'form.kind.sqlite')}</button>
           ))}
         </div>
@@ -87,7 +87,7 @@ export function ProfileForm(props: ProfileFormProps): JSX.Element {
             </div>
             <label className="dsh-rdb-field">
               <span className="dsh-rdb-fieldLabel">{tt('form.database')}</span>
-              {input(database, setDatabase, { placeholder: kind === 'gaussdb' ? 'postgres' : 'postgres' })}
+              {input(database, setDatabase, { placeholder: kind === 'mysql' ? 'mydb' : 'postgres' })}
             </label>
             <div className="dsh-rdb-formRow">
               <label className="dsh-rdb-field">

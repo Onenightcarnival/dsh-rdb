@@ -44,6 +44,8 @@ export class SqliteConnection implements DbConnection {
 
   quoteIdent(name: string): string { return '"' + name.replace(/"/g, '""') + '"' }
   placeholder(): string { return '?' }
+  castToText(expr: string): string { return `CAST(${expr} AS TEXT)` }
+  insertDefaults(target: string): string { return `INSERT INTO ${target} DEFAULT VALUES` }
 
   async query(sql: string, params: unknown[], options: QueryOptions): Promise<QueryResult> {
     const started = Date.now()

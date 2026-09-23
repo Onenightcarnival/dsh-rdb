@@ -9,7 +9,7 @@
 是否允许 agent 写入。
 
 支持 SQLite（Node 内置 `node:sqlite`，无原生扩展）、PostgreSQL（`pg`）、
-华为云 GaussDB（`gaussdb-node`）。
+MySQL / MariaDB（`mysql2`）、华为云 GaussDB（`gaussdb-node`）。
 
 ## 安装
 
@@ -26,7 +26,7 @@ dsh plugin --profile web add file:./dsh-rdb-<版本>.tgz   # 离线包
 ## 使用
 
 1. 侧边栏点「数据库」，左栏「+ 新增」选类型：SQLite 填数据库文件路径；
-   PostgreSQL / GaussDB 填主机、端口、数据库、用户名、密码，可勾选 SSL。
+   PostgreSQL / MySQL / GaussDB 填主机、端口、数据库、用户名、密码，可勾选 SSL。
    主机可填多个节点，逗号分隔，所有节点共用端口栏的端口。
    可选项：显示名称（默认 `数据库@主机` 或文件名，agent 用它引用这条连接）、
    目标节点、随机选择节点、「允许 agent 写入」（不勾时 agent 只能读）。
@@ -40,7 +40,11 @@ dsh plugin --profile web add file:./dsh-rdb-<版本>.tgz   # 离线包
    里找备库，没有再接受任意节点）。连接中断后下一次使用会按同样规则重连，
    主库宕机时自动落到列表里其他可用节点。GaussDB 对应 JDBC 的
    `targetServerType=master / slave / preferSlave` 与 `autoBalance`。
-2. 对象树按 schema 切换，列出表和视图，支持名称过滤。选中一张表：
+   MySQL / MariaDB 的判定：`SHOW REPLICA STATUS`（旧版 `SHOW SLAVE STATUS`）有
+   复制通道即为备库，`read_only` / `super_read_only` 为只读；账号没有
+   REPLICATION CLIENT 权限时按 read_only 同时判定两者。
+2. 对象树按 schema 切换，列出表和视图，支持名称过滤。MySQL 的 schema 即同一
+   服务器上的数据库，默认为连接填写的数据库，可切到有权限的其他库。选中一张表：
    - 数据：每页 100 行，列头点击排序，单列过滤（`=`、`like`、`is null` 等），
      双击单元格编辑（`∅` 置 NULL，Esc 取消），「新增行」「删除所选」，
      底部「保存改动」先展示将要执行的 SQL，确认后在一个事务里提交。
@@ -66,14 +70,15 @@ dsh plugin --profile web add file:./dsh-rdb-<版本>.tgz   # 离线包
 - `db_query` / `db_explain` 在服务端做只读判定（拒绝 DML、DDL、
   `select … into`、`for update` 等），与前端判定无关；`db_execute`
   再叠加连接级写入开关。
-- 每条语句带 `statement_timeout`（默认 30 s），结果按行数截断
-  （GUI 1000 行、工具 500 行、CSV 导出 10 万行）。
+- 每条语句带超时（默认 30 s：PostgreSQL / GaussDB 用 `statement_timeout`，
+  MySQL 用 `max_execution_time`，MariaDB 用 `max_statement_time`），结果按行数
+  截断（GUI 1000 行、工具 500 行、CSV 导出 10 万行）。
 
 ## 开发
 
 ```sh
 npm install
-npm run build        # esbuild：lib/index.js（host，ESM，内联 pg / gaussdb-node）
+npm run build        # esbuild：lib/index.js（host，ESM，内联 pg / mysql2 / gaussdb-node）
                      #         lib/client.js（浏览器半边，dsh 模块加载器封装）
 npm run typecheck
 npm pack             # 打出 dsh-rdb-<版本>.tgz

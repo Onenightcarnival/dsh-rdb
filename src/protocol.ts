@@ -18,7 +18,7 @@ export const RDB_API = {
   exportCsv: '/api/dsh-rdb/export.csv',
 } as const
 
-export type DbKind = 'sqlite' | 'postgres' | 'gaussdb'
+export type DbKind = 'sqlite' | 'postgres' | 'gaussdb' | 'mysql'
 
 /** libpq target_session_attrs, same names and semantics. */
 export type TargetSessionAttrs = 'any' | 'read-write' | 'read-only' | 'primary' | 'standby' | 'prefer-standby'

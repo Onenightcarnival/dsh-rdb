@@ -23,6 +23,10 @@ export interface DbConnection {
   quoteIdent(name: string): string
   /** Positional placeholder for parameter index (0-based). */
   placeholder(index: number): string
+  /** Expression casting `expr` to a string type of this dialect (filters compare text). */
+  castToText(expr: string): string
+  /** INSERT of one all-defaults row into `target` (already quoted). */
+  insertDefaults(target: string): string
   /** Default schema for unqualified names. */
   defaultSchema: string
   /** `host:port` of the node in use (network databases only). */

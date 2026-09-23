@@ -29,7 +29,7 @@ export interface Config {
 const SECTION_ORDER = 153
 
 /** Model-facing announcement, only present while agent tools are switched on. */
-export const RDB_GUIDANCE = '本机已安装 dsh-rdb 插件（关系数据库工作台：SQLite / PostgreSQL / GaussDB），用户已允许 agent 使用其工具。能力：db_connections 列出用户在面板里配置好的连接（以名称引用），db_schema 查看 schema、表列表或某张表的列/索引/DDL（写 SQL 前先看结构），db_query 执行单条只读语句（SELECT/WITH/EXPLAIN/SHOW，结果有行数上限，大表加 WHERE/LIMIT），db_explain 看执行计划，db_execute 在一个事务里执行写语句（仅对用户勾选了「允许 agent 写入」的连接可用，且必须先把 SQL 原文给用户确认再以 confirm=true 调用；失败整体回滚）。凭证由用户在图形界面配置，工具不返回也不需要密码。用户提到「数据库 / 表 / SQL / 查数 / PostgreSQL / GaussDB / SQLite」时即指本插件。'
+export const RDB_GUIDANCE = '本机已安装 dsh-rdb 插件（关系数据库工作台：SQLite / PostgreSQL / MySQL / GaussDB），用户已允许 agent 使用其工具。能力：db_connections 列出用户在面板里配置好的连接（以名称引用），db_schema 查看 schema、表列表或某张表的列/索引/DDL（写 SQL 前先看结构），db_query 执行单条只读语句（SELECT/WITH/EXPLAIN/SHOW，结果有行数上限，大表加 WHERE/LIMIT），db_explain 看执行计划，db_execute 在一个事务里执行写语句（仅对用户勾选了「允许 agent 写入」的连接可用，且必须先把 SQL 原文给用户确认再以 confirm=true 调用；失败整体回滚）。凭证由用户在图形界面配置，工具不返回也不需要密码。用户提到「数据库 / 表 / SQL / 查数 / PostgreSQL / MySQL / GaussDB / SQLite」时即指本插件。'
 
 const MOUNTED = Symbol.for('dsh-web.mounted-plugins')
 

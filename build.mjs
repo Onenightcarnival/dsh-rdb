@@ -24,7 +24,7 @@ await build({
   logLevel: 'info',
   // The AWS SDK's CJS internals require() node builtins at runtime; an ESM
   // bundle needs a real require in scope for esbuild's __require shim.
-  banner: { js: `// ${pkg.name}@${pkg.version} host half — bundled with esbuild (pg ${require('pg/package.json').version}, gaussdb-node ${JSON.parse(readFileSync(new URL('./node_modules/gaussdb-node/package.json', import.meta.url), 'utf8')).version} inlined)
+  banner: { js: `// ${pkg.name}@${pkg.version} host half — bundled with esbuild (pg ${require('pg/package.json').version}, gaussdb-node ${JSON.parse(readFileSync(new URL('./node_modules/gaussdb-node/package.json', import.meta.url), 'utf8')).version}, mysql2 ${require('mysql2/package.json').version} inlined)
 import { createRequire as __dshRdbCreateRequire } from 'node:module';
 const require = __dshRdbCreateRequire(import.meta.url);` },
 })

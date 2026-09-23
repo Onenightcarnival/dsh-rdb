@@ -36,8 +36,8 @@ interface StoreFile {
 }
 
 const DEFAULT_SETTINGS: RdbSettings = { agentTools: false }
-const KINDS: DbKind[] = ['sqlite', 'postgres', 'gaussdb']
-const DEFAULT_PORT: Record<DbKind, number> = { sqlite: 0, postgres: 5432, gaussdb: 8000 }
+const KINDS: DbKind[] = ['sqlite', 'postgres', 'gaussdb', 'mysql']
+const DEFAULT_PORT: Record<DbKind, number> = { sqlite: 0, postgres: 5432, gaussdb: 8000, mysql: 3306 }
 const NAME_RE = /^[\p{L}\p{N}][\p{L}\p{N} ._-]{0,63}$/u
 
 function str(value: unknown): string | undefined {
@@ -77,7 +77,7 @@ export function nodeText(node: HostNode): string {
 export function validateProfile(payload: DbProfilePayload): string | undefined {
   const name = str(payload.name)?.trim() ?? ''
   if (name !== '' && !NAME_RE.test(name)) return 'name may contain letters, digits, spaces, dots, hyphens and underscores (max 64)'
-  if (!KINDS.includes(payload.kind as DbKind)) return 'kind must be sqlite, postgres or gaussdb'
+  if (!KINDS.includes(payload.kind as DbKind)) return 'kind must be sqlite, postgres, gaussdb or mysql'
   if (payload.kind === 'sqlite') {
     if ((str(payload.file)?.trim() ?? '') === '') return 'file is required for sqlite'
   } else {

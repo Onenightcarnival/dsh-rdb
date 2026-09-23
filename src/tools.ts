@@ -30,7 +30,7 @@ export function renderTable(result: QueryResult): string {
 export function dbConnectionsTool(store: ProfileStore) {
   return defineTool({
     name: 'db_connections',
-    description: 'List the database connections configured in the dsh database panel (name, kind, host, database, whether writes are allowed). Every other db_* tool takes one of these names. Triggers: database, SQL, table, query, PostgreSQL, GaussDB, SQLite, 数据库, 查表.',
+    description: 'List the database connections configured in the dsh database panel (name, kind, host, database, whether writes are allowed). Every other db_* tool takes one of these names. Triggers: database, SQL, table, query, PostgreSQL, MySQL, MariaDB, GaussDB, SQLite, 数据库, 查表.',
     parameters: {},
     output: {
       schema: {
@@ -68,7 +68,7 @@ export function dbSchemaTool(engine: RdbEngine) {
     description: 'Inspect structure: without `table`, list schemas and the tables/views of one schema (default schema when omitted); with `table`, return its columns (type, nullable, default, primary key), indexes and DDL. Call this before writing SQL against a table you have not seen.',
     parameters: {
       connection: CONN_PARAM,
-      schema: { type: 'string', description: 'Schema name (PostgreSQL/GaussDB: default "public"; SQLite: "main").' },
+      schema: { type: 'string', description: 'Schema name (PostgreSQL/GaussDB: default "public"; MySQL: the database, default the connection\'s database; SQLite: "main").' },
       table: { type: 'string', description: 'Table or view name to describe.' },
     },
     output: {
@@ -176,7 +176,7 @@ export function dbExecuteTool(engine: RdbEngine) {
 export function dbExplainTool(engine: RdbEngine) {
   return defineTool({
     name: 'db_explain',
-    description: 'Show the execution plan of one SELECT (EXPLAIN; PostgreSQL/GaussDB use EXPLAIN (FORMAT TEXT), SQLite uses EXPLAIN QUERY PLAN). Read-only.',
+    description: 'Show the execution plan of one SELECT (EXPLAIN; PostgreSQL/GaussDB use EXPLAIN (FORMAT TEXT), MySQL uses EXPLAIN, SQLite uses EXPLAIN QUERY PLAN). Read-only.',
     parameters: {
       connection: CONN_PARAM,
       sql: { type: 'string', required: true, description: 'The statement to explain.' },

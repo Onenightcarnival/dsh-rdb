@@ -56,7 +56,7 @@ export function sessionMatches(want: Exclude<TargetSessionAttrs, 'prefer-standby
 }
 
 /** Fisher-Yates shuffle (libpq load_balance_hosts=random). */
-function shuffled<T>(items: T[]): T[] {
+export function shuffled<T>(items: T[]): T[] {
   const out = [...items]
   for (let i = out.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -142,6 +142,8 @@ export class PgConnection implements DbConnection {
 
   quoteIdent(name: string): string { return '"' + name.replace(/"/g, '""') + '"' }
   placeholder(index: number): string { return `$${index + 1}` }
+  castToText(expr: string): string { return `CAST(${expr} AS TEXT)` }
+  insertDefaults(target: string): string { return `INSERT INTO ${target} DEFAULT VALUES` }
 
   /** Statements from concurrent GUI requests run one at a time so the timeout SET/RESET pair stays scoped. */
   private chain: Promise<unknown> = Promise.resolve()

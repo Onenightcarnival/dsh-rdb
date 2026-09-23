@@ -6,6 +6,7 @@ import type { ChangesResult, DbProfile, DbTestResult, QueryResult, RowChange, Ro
 import type { DbConnection, QueryOptions } from './drivers/types.ts'
 import { SqliteConnection } from './drivers/sqlite.ts'
 import { PgConnection } from './drivers/postgres.ts'
+import { MysqlConnection } from './drivers/mysql.ts'
 import type { ProfileStore } from './store.ts'
 
 export const DEFAULT_MAX_ROWS = 1000
@@ -106,9 +107,9 @@ export class RdbEngine {
       cached = undefined
     }
     if (cached === undefined) {
-      const conn = profile.kind === 'sqlite' ? new SqliteConnection(profile.file) : new PgConnection(profile)
+      const conn = profile.kind === 'sqlite' ? new SqliteConnection(profile.file) : profile.kind === 'mysql' ? new MysqlConnection(profile) : new PgConnection(profile)
       cached = { conn, updatedAt: profile.updatedAt, lastUsed: Date.now() }
-      if (conn instanceof PgConnection) {
+      if (conn instanceof PgConnection || conn instanceof MysqlConnection) {
         cached.opening = conn.connect().catch((error) => { this.conns.delete(profile.id); throw error })
       }
       this.conns.set(profile.id, cached)
@@ -209,7 +210,7 @@ export class RdbEngine {
       if (f.op === 'is null' || f.op === 'is not null') { where.push(`${col} ${f.op.toUpperCase()}`); continue }
       if (!['=', '!=', '>', '>=', '<', '<=', 'like'].includes(f.op)) throw new Error(`unsupported operator '${f.op}'`)
       params.push(f.value ?? '')
-      where.push(f.op === 'like' ? `CAST(${col} AS TEXT) LIKE ${conn.placeholder(params.length - 1)}` : `${col} ${f.op} ${conn.placeholder(params.length - 1)}`)
+      where.push(f.op === 'like' ? `${conn.castToText(col)} LIKE ${conn.placeholder(params.length - 1)}` : `${col} ${f.op} ${conn.placeholder(params.length - 1)}`)
     }
     const whereSql = where.length > 0 ? ` WHERE ${where.join(' AND ')}` : ''
     let orderSql = ''
@@ -257,7 +258,7 @@ export class RdbEngine {
         check(change.values)
         const entries = Object.entries(change.values).filter(([, v]) => v !== undefined)
         statements.push(entries.length === 0
-          ? `INSERT INTO ${target} DEFAULT VALUES`
+          ? conn.insertDefaults(target)
           : `INSERT INTO ${target} (${entries.map(([k]) => q(k)).join(', ')}) VALUES (${entries.map(([, v]) => literal(v)).join(', ')})`)
       } else {
         check(change.key)
