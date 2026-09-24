@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { RdbApi } from '../api.ts'
-import type { ChangesResult, RowChange, RowFilter, RowsPage, TableInfo, TableRef } from '../../protocol.ts'
+import { quoteIdentifier, type ChangesResult, type DbKind, type RowChange, type RowFilter, type RowsPage, type TableInfo, type TableRef } from '../../protocol.ts'
 import { tt } from '../locales.ts'
 import { BannerView, Modal, errorMessage, type Banner } from './common.tsx'
 
@@ -10,6 +10,7 @@ const OPS: RowFilter['op'][] = ['=', '!=', '>', '>=', '<', '<=', 'like', 'is nul
 export interface DataGridProps {
   api: RdbApi
   connectionId: string
+  kind: DbKind
   table: TableRef
   info: TableInfo
 }
@@ -24,7 +25,7 @@ export function cellText(v: unknown): string {
 interface EditState { row: number; col: number; value: string }
 
 export function DataGrid(props: DataGridProps): JSX.Element {
-  const { api, connectionId, table, info } = props
+  const { api, connectionId, kind, table, info } = props
   const pk = info.primaryKey
   const editable = pk.length > 0 && table.kind === 'table'
   const [page, setPage] = useState<RowsPage | undefined>()
@@ -132,7 +133,7 @@ export function DataGrid(props: DataGridProps): JSX.Element {
   const total = page?.total
   const from = offset + 1
   const to = offset + (page?.rows.length ?? 0)
-  const exportUrl = api.exportUrl(connectionId, `SELECT * FROM "${table.schema.replace(/"/g, '""')}"."${table.name.replace(/"/g, '""')}"`, `${table.schema}.${table.name}`)
+  const exportUrl = api.exportUrl(connectionId, `SELECT * FROM ${quoteIdentifier(kind, table.schema)}.${quoteIdentifier(kind, table.name)}`, `${table.schema}.${table.name}`)
 
   return (
     <div className="dsh-rdb-grid">

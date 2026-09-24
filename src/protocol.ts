@@ -20,6 +20,11 @@ export const RDB_API = {
 
 export type DbKind = 'sqlite' | 'postgres' | 'gaussdb' | 'mysql'
 
+/** Quote one identifier the way `kind` expects: backticks for MySQL, double quotes elsewhere. */
+export function quoteIdentifier(kind: DbKind, name: string): string {
+  return kind === 'mysql' ? '`' + name.replace(/`/g, '``') + '`' : '"' + name.replace(/"/g, '""') + '"'
+}
+
 /** libpq target_session_attrs, same names and semantics. */
 export type TargetSessionAttrs = 'any' | 'read-write' | 'read-only' | 'primary' | 'standby' | 'prefer-standby'
 export const TARGET_SESSION_ATTRS: TargetSessionAttrs[] = ['any', 'read-write', 'read-only', 'primary', 'standby', 'prefer-standby']

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { RdbApi } from '../api.ts'
-import { hostEntries, type DbProfilePayload, type DbProfileSummary, type TableInfo, type TableRef } from '../../protocol.ts'
+import { hostEntries, quoteIdentifier, type DbProfilePayload, type DbProfileSummary, type TableInfo, type TableRef } from '../../protocol.ts'
 import { tt } from '../locales.ts'
 import type { PanelController } from '../mount.tsx'
 import { BannerView, Modal, errorMessage, type Banner } from './common.tsx'
@@ -227,13 +227,13 @@ export function RdbPanel(props: RdbPanelProps): JSX.Element {
               {table !== undefined && <span className="dsh-rdb-tableName">{table.schema}.{table.name}</span>}
             </div>
             {tab === 'sql' ? (
-              <SqlEditor key={active.id} api={api} connectionId={active.id} initialSql={table !== undefined ? `SELECT * FROM "${table.schema}"."${table.name}" LIMIT 100` : ''} />
+              <SqlEditor key={active.id} api={api} connectionId={active.id} initialSql={table !== undefined ? `SELECT * FROM ${quoteIdentifier(active.kind, table.schema)}.${quoteIdentifier(active.kind, table.name)} LIMIT 100` : ''} />
             ) : table === undefined ? (
               <div className="dsh-rdb-empty">{tt('data.pick')}</div>
             ) : info === undefined ? (
               <div className="dsh-rdb-loading">{tt('tree.loading')}</div>
             ) : tab === 'data' ? (
-              <DataGrid key={`${active.id}/${table.schema}.${table.name}`} api={api} connectionId={active.id} table={table} info={info} />
+              <DataGrid key={`${active.id}/${table.schema}.${table.name}`} api={api} connectionId={active.id} kind={active.kind} table={table} info={info} />
             ) : (
               <Structure api={api} connectionId={active.id} table={table} info={info} />
             )}
