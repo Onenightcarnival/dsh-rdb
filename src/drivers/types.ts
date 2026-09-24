@@ -27,6 +27,8 @@ export interface DbConnection {
   castToText(expr: string): string
   /** INSERT of one all-defaults row into `target` (already quoted). */
   insertDefaults(target: string): string
+  /** One value as a literal in this dialect (grid edits are rendered as SQL text). */
+  literal(value: unknown): string
   /** Default schema for unqualified names. */
   defaultSchema: string
   /** `host:port` of the node in use (network databases only). */

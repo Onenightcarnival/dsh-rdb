@@ -21,45 +21,56 @@ export function errorText(error: unknown): string {
   return String(error)
 }
 
+/** Dialect facts the SQL text scans depend on. */
+export interface SqlDialect {
+  /** `# …` line comments and backslash escapes inside strings (MySQL / MariaDB). */
+  mysql?: boolean
+}
+
 /** Strip string literals, quoted identifiers, and comments for keyword scans. */
-function skeleton(sql: string): string {
-  return sql
-    .replace(/--[^\n]*/g, ' ')
-    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+function skeleton(sql: string, dialect: SqlDialect = {}): string {
+  let s = sql.replace(/--[^\n]*/g, ' ').replace(/\/\*[\s\S]*?\*\//g, ' ')
+  if (dialect.mysql) {
+    s = s.replace(/#[^\n]*/g, ' ').replace(/'(?:[^'\\]|''|\\.)*'/g, "''").replace(/`(?:[^`]|``)*`/g, '``')
+  }
+  return s
     .replace(/'(?:[^']|'')*'/g, "''")
     .replace(/"(?:[^"]|"")*"/g, '""')
     .replace(/\$\$[\s\S]*?\$\$/g, "''")
 }
 
-/** Split on top-level semicolons (after skeletonizing to find the positions). */
-export function splitStatements(sql: string): string[] {
+/** Split on top-level semicolons; pieces holding only comments and whitespace are dropped. */
+export function splitStatements(sql: string, dialect: SqlDialect = {}): string[] {
   const out: string[] = []
   let depth = 0
   let inS = false
   let inD = false
+  let inB = false
   let start = 0
   for (let i = 0; i < sql.length; i++) {
     const ch = sql[i]
-    if (inS) { if (ch === "'" ) inS = false; continue }
+    if (inS) { if (dialect.mysql && ch === '\\') { i++; continue } if (ch === "'" ) inS = false; continue }
     if (inD) { if (ch === '"') inD = false; continue }
+    if (inB) { if (ch === '`') inB = false; continue }
     if (ch === "'") { inS = true; continue }
     if (ch === '"') { inD = true; continue }
-    if (ch === '-' && sql[i + 1] === '-') { const nl = sql.indexOf('\n', i); i = nl < 0 ? sql.length : nl; continue }
+    if (dialect.mysql && ch === '`') { inB = true; continue }
+    if ((ch === '-' && sql[i + 1] === '-') || (dialect.mysql && ch === '#')) { const nl = sql.indexOf('\n', i); i = nl < 0 ? sql.length : nl; continue }
     if (ch === '/' && sql[i + 1] === '*') { const end = sql.indexOf('*/', i + 2); i = end < 0 ? sql.length : end + 1; continue }
     if (ch === '(') depth++
     else if (ch === ')') depth = Math.max(0, depth - 1)
     else if (ch === ';' && depth === 0) { out.push(sql.slice(start, i)); start = i + 1 }
   }
   out.push(sql.slice(start))
-  return out.map(s => s.trim()).filter(s => s !== '')
+  return out.map(s => s.trim()).filter(s => s !== '' && skeleton(s, dialect).trim() !== '')
 }
 
-const READ_START = /^(select|with|explain|show|values|table|describe|pragma)\b/i
+const READ_START = /^(select|with|explain|show|values|table|describe|desc|pragma)\b/i
 const DML_OR_DDL = /\b(insert|update|delete|merge|create|alter|drop|truncate|grant|revoke|vacuum|reindex|attach|detach|copy|call|do|lock|refresh|cluster|comment|set|reset|begin|commit|rollback|start|end|savepoint|release)\b/i
 
 /** Whether a single statement only reads. Conservative: anything unclear is a write. */
-export function isReadOnly(statement: string): boolean {
-  const s = skeleton(statement).trim()
+export function isReadOnly(statement: string, dialect: SqlDialect = {}): boolean {
+  const s = skeleton(statement, dialect).trim()
   if (!READ_START.test(s)) return false
   const rest = s.replace(READ_START, '')
   if (/^\s*pragma/i.test(s) && /[=(]/.test(rest)) return /^\s*\(/.test(rest) && !/=/.test(rest) ? true : false
@@ -68,14 +79,7 @@ export function isReadOnly(statement: string): boolean {
   return !DML_OR_DDL.test(rest)
 }
 
-/** Render a literal for SQL previews (execution uses parameters). */
-export function literal(value: unknown): string {
-  if (value === null || value === undefined) return 'NULL'
-  if (typeof value === 'number' || typeof value === 'bigint') return String(value)
-  if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE'
-  const text = typeof value === 'string' ? value : JSON.stringify(value)
-  return "'" + text.replace(/'/g, "''") + "'"
-}
+export { sqlLiteral as literal } from './drivers/literal.ts'
 
 interface Cached { conn: DbConnection; updatedAt: number; lastUsed: number; opening?: Promise<void> }
 
@@ -178,11 +182,12 @@ export class RdbEngine {
 
   /** Run one statement. `allowWrite=false` refuses anything that is not a read. */
   async query(idOrName: string, sql: string, options: { allowWrite: boolean; maxRows?: number; timeoutMs?: number; params?: unknown[] }): Promise<QueryResult> {
-    const statements = splitStatements(sql)
+    const dialect: SqlDialect = { mysql: this.profile(idOrName).kind === 'mysql' }
+    const statements = splitStatements(sql, dialect)
     if (statements.length === 0) throw new Error('empty SQL')
     if (statements.length > 1) throw new Error(`one statement at a time (got ${statements.length}); run them separately or use a transaction`)
     const statement = statements[0]
-    if (!options.allowWrite && !isReadOnly(statement)) throw new Error('refused: only read statements run here (SELECT / WITH / EXPLAIN / SHOW); writes go through db_execute')
+    if (!options.allowWrite && !isReadOnly(statement, dialect)) throw new Error('refused: only read statements run here (SELECT / WITH / EXPLAIN / SHOW); writes go through db_execute')
     const { conn } = await this.connect(idOrName)
     const q: QueryOptions = { maxRows: Math.max(1, Math.min(100000, options.maxRows ?? DEFAULT_MAX_ROWS)), timeoutMs: options.timeoutMs ?? DEFAULT_TIMEOUT_MS }
     return conn.query(statement, options.params ?? [], q)
@@ -245,13 +250,13 @@ export class RdbEngine {
     const check = (obj: Record<string, unknown>): void => { for (const k of Object.keys(obj)) if (!names.has(k)) throw new Error(`unknown column '${k}'`) }
     const keyClause = (key: Record<string, unknown>): string => {
       if (pk.length === 0) throw new Error('table has no primary key; edit it with SQL instead')
-      return pk.map(k => (key[k] === null || key[k] === undefined) ? `${q(k)} IS NULL` : `${q(k)} = ${literal(key[k])}`).join(' AND ')
+      return pk.map(k => (key[k] === null || key[k] === undefined) ? `${q(k)} IS NULL` : `${q(k)} = ${conn.literal(key[k])}`).join(' AND ')
     }
     const statements: string[] = []
     for (const change of request.changes) {
       if (change.kind === 'update') {
         check(change.values); check(change.key)
-        const sets = Object.entries(change.values).map(([k, v]) => `${q(k)} = ${literal(v)}`)
+        const sets = Object.entries(change.values).map(([k, v]) => `${q(k)} = ${conn.literal(v)}`)
         if (sets.length === 0) continue
         statements.push(`UPDATE ${target} SET ${sets.join(', ')} WHERE ${keyClause(change.key)}`)
       } else if (change.kind === 'insert') {
@@ -259,7 +264,7 @@ export class RdbEngine {
         const entries = Object.entries(change.values).filter(([, v]) => v !== undefined)
         statements.push(entries.length === 0
           ? conn.insertDefaults(target)
-          : `INSERT INTO ${target} (${entries.map(([k]) => q(k)).join(', ')}) VALUES (${entries.map(([, v]) => literal(v)).join(', ')})`)
+          : `INSERT INTO ${target} (${entries.map(([k]) => q(k)).join(', ')}) VALUES (${entries.map(([, v]) => conn.literal(v)).join(', ')})`)
       } else {
         check(change.key)
         statements.push(`DELETE FROM ${target} WHERE ${keyClause(change.key)}`)

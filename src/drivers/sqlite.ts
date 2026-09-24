@@ -6,6 +6,7 @@
 import { createRequire } from 'node:module'
 import type { ColumnInfo, IndexInfo, QueryResult, TableRef } from '../protocol.ts'
 import type { DbConnection, QueryOptions } from './types.ts'
+import { sqlLiteral } from './literal.ts'
 
 interface SqliteStatement {
   all(...params: unknown[]): Record<string, unknown>[]
@@ -46,6 +47,7 @@ export class SqliteConnection implements DbConnection {
   placeholder(): string { return '?' }
   castToText(expr: string): string { return `CAST(${expr} AS TEXT)` }
   insertDefaults(target: string): string { return `INSERT INTO ${target} DEFAULT VALUES` }
+  literal(value: unknown): string { return sqlLiteral(value) }
 
   async query(sql: string, params: unknown[], options: QueryOptions): Promise<QueryResult> {
     const started = Date.now()

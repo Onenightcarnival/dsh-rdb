@@ -6,7 +6,7 @@ import { Modal, errorMessage } from './common.tsx'
 import { cellText } from './DataGrid.tsx'
 
 const MAX_ROWS = 1000
-const READ_START = /^\s*(?:--[^\n]*\n\s*|\/\*[\s\S]*?\*\/\s*)*(select|with|explain|show|values|table|describe|pragma)\b/i
+const READ_START = /^\s*(?:--[^\n]*\n\s*|#[^\n]*\n\s*|\/\*[\s\S]*?\*\/\s*)*(select|with|explain|show|values|table|describe|desc|pragma)\b/i
 const WRITE_WORDS = /\b(insert|update|delete|merge|create|alter|drop|truncate|grant|revoke|vacuum|reindex|attach|detach|copy|call|do|lock|refresh)\b|\bselect\b[\s\S]*\binto\b|\bfor\s+update\b/i
 
 /** Client-side classification used only to decide whether to ask before running. */
@@ -15,7 +15,7 @@ export function looksReadOnly(sql: string): boolean {
 }
 
 function commandOf(sql: string): string {
-  const m = /^\s*(?:--[^\n]*\n\s*|\/\*[\s\S]*?\*\/\s*)*([a-z]+)/i.exec(sql)
+  const m = /^\s*(?:--[^\n]*\n\s*|#[^\n]*\n\s*|\/\*[\s\S]*?\*\/\s*)*([a-z]+)/i.exec(sql)
   return (m?.[1] ?? 'SQL').toUpperCase()
 }
 

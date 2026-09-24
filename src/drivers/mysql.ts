@@ -136,6 +136,13 @@ export class MysqlConnection implements DbConnection {
   placeholder(): string { return '?' }
   castToText(expr: string): string { return `CAST(${expr} AS CHAR)` }
   insertDefaults(target: string): string { return `INSERT INTO ${target} () VALUES ()` }
+  /** MySQL strings take backslash escapes; mysql2's escaper doubles both quotes and backslashes. */
+  literal(value: unknown): string {
+    if (value === null || value === undefined) return 'NULL'
+    if (typeof value === 'number' || typeof value === 'bigint') return String(value)
+    if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE'
+    return mysql.escape(typeof value === 'string' ? value : JSON.stringify(value))
+  }
 
   private chain: Promise<unknown> = Promise.resolve()
   private locked<T>(fn: () => Promise<T>): Promise<T> {
@@ -158,7 +165,7 @@ export class MysqlConnection implements DbConnection {
     }
     try {
       const [result, fields] = await this.client.query(sql, params)
-      const command = (sql.match(/^\s*([a-z]+)/i)?.[1] ?? 'SQL').toUpperCase()
+      const command = (sql.replace(/^(?:\s|--[^\n]*|#[^\n]*|\/\*[\s\S]*?\*\/)*/, '').match(/^([a-z]+)/i)?.[1] ?? 'SQL').toUpperCase()
       if (fields === undefined || !Array.isArray(result)) {
         const header = (result ?? {}) as ResultSetHeader
         return { columns: [], rows: [], rowCount: header.affectedRows ?? 0, truncated: false, durationMs: Date.now() - started, command }

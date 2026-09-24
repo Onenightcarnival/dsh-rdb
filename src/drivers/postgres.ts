@@ -8,6 +8,7 @@ import gaussModule from 'gaussdb-node'
 import type { ColumnInfo, DbKind, DbProfile, IndexInfo, QueryResult, TableRef, TargetSessionAttrs } from '../protocol.ts'
 import type { DbConnection, QueryOptions } from './types.ts'
 import { nodeText, parseHosts, type HostNode } from '../store.ts'
+import { sqlLiteral } from './literal.ts'
 
 interface PgLikeResult {
   rows: unknown[][]
@@ -144,6 +145,7 @@ export class PgConnection implements DbConnection {
   placeholder(index: number): string { return `$${index + 1}` }
   castToText(expr: string): string { return `CAST(${expr} AS TEXT)` }
   insertDefaults(target: string): string { return `INSERT INTO ${target} DEFAULT VALUES` }
+  literal(value: unknown): string { return sqlLiteral(value) }
 
   /** Statements from concurrent GUI requests run one at a time so the timeout SET/RESET pair stays scoped. */
   private chain: Promise<unknown> = Promise.resolve()
